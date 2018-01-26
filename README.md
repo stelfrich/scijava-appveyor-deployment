@@ -25,6 +25,41 @@ In Nexus, however, those unique artifacts will be gathered under one GAV (GroupI
 
 ## Signing artifacts
 
-- Get GPG4Win working
-    - Clean up PATH s.t. that installer can be executed successfully
-    - See .appveyor/setup.ps1
+### Cleaning up PATH for GPG4Win installation
+It actually was a bit more tricky than expected:
+
+```powershell
+# Clean up the machine-wide Path environment variable to a minimum (to enable GPG4Win installation)
+[Environment]::SetEnvironmentVariable("Path", "C:\Program Files\AppVeyor\BuildAgent\", "Machine");
+
+# Set up this process' Path environment variable
+$Env:Path = "$Env:GIT_BIN;$Env:MAVEN_BIN;${Env:JAVA_HOME}bin;$Env:GNUPG_HOME;$Env:MINGW64_BIN;$Env:MINGW32_BIN;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;"
+
+# Set up the machine-wide Path environment variable
+[Environment]::SetEnvironmentVariable("Path", $Env:Path, "Machine");
+```
+
+See [.appveyor/setup.ps1](https://github.com/imagej/imagej-launcher/blob/master/.appveyor/setup.ps1) for more context.
+
+### Installing GPG4Win
+Download installer if it's not cached locally and start silent installation.
+
+Since the `Invoke-Expression` returns directly without waiting for the installation to finish
+
+```powershell
+Invoke-Expression ("" + $setupFilename + " /S /D=" + $installFolder)
+```
+
+we have added a **very** simple polling mechanism that checks for the existance of the `gpg2` binary:
+
+```powershell
+$pollCounter = 0;
+# Wait for gpg2.exe to exists
+while (!(Test-Path ("" + $installFolder + "\gpg2.exe")) -and ($pollCounter -le 10)) {
+    Start-Sleep 5
+    $pollCounter++
+    Write-Output ("Waiting for installer to finish (#" + $pollCounter + ")")
+}
+```
+
+See [.appveyor/install-gpg4win.ps1](https://github.com/imagej/imagej-launcher/blob/master/.appveyor/install-gpg4win.ps1) for more context.
