@@ -51,15 +51,25 @@ $Env:Path = "$Env:GIT_BIN;$Env:MAVEN_BIN;${Env:JAVA_HOME}bin;$Env:GNUPG_HOME;$En
 See [.appveyor/setup.ps1](https://github.com/imagej/imagej-launcher/blob/master/.appveyor/setup.ps1) for more context.
 
 ### Installing GPG4Win
-Download installer if it's not cached locally and start silent installation.
+First, we check for the existance of the installer to skip the download if it's already there. This is most likely the case for a configuration where you have added the installer to AppVeyor's chaching system. 
 
-Since the `Invoke-Expression` returns directly without waiting for the installation to finish
+```powershell
+# Download installer from files.gpg4win.org
+If (!(Test-Path $setupFilename)) {
+    "Downloading installer"
+    Invoke-WebRequest -Uri $url -OutFile $setupFilename
+} Else {
+    "Installer found: not attempting to download"
+}
+```
+
+Once the download is done, we start the installer:
 
 ```powershell
 Invoke-Expression ("" + $setupFilename + " /S /D=" + $installFolder)
 ```
 
-we have added a **very** simple polling mechanism that checks for the existance of the `gpg2` binary:
+Since the `Invoke-Expression` returns without waiting for the installation to finish we have added a simple polling mechanism that checks for the existance of the `gpg2` binary every 5 seconds. If, after 10 tries the binary does not exist, the build will fail when trying to use the `gpg2` binary:
 
 ```powershell
 $pollCounter = 0;
